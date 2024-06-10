@@ -137,7 +137,9 @@ def main():
                 balance_info = auth_response['balanceInfo']
 
                 username = balance_info.get('user', {}).get('userInfo', {}).get('userName', "Tidak Ada Username")
-                print(Fore.CYAN + Style.BRIGHT + f"\n===== [ {balance_info['user']['userInfo']['firstName']} {balance_info['user']['userInfo']['lastName']} | {username} ] =====")
+                firstname = balance_info.get('user', {}).get('userInfo', {}).get('firstName', "Tidak Ada Firstname")
+                lastname = balance_info.get('user', {}).get('userInfo', {}).get('lastName', "Tidak Ada Lastname")
+                print(Fore.CYAN + Style.BRIGHT + f"\n===== [ {firstname} {lastname} | {username} ] =====")
                 print(Fore.YELLOW + Style.BRIGHT + f"[ Balance ] : {int(balance_info['balance']):,}".replace(',', '.'))
                 if cek_task_enable == 'y':
                     print(Fore.YELLOW + Style.BRIGHT + f"\r[ Task ] : Checking ...", end="", flush=True)
