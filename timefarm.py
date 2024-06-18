@@ -177,7 +177,7 @@ def extract_user_details(query_line):
     user_info_encoded = user_info_encoded.split('=')[1]
     user_info_json = urllib.parse.unquote(user_info_encoded)
     user_info = json.loads(user_info_json)
-    return user_info['username'], user_info['first_name'], user_info['last_name']
+    return user_info.get('username', "Tidak Ada Username"), user_info.get('first_name', "Tidak Ada Firstname"), user_info.get('last_name', "Tidak Ada Lastname")
 
 def main():
     while True:
