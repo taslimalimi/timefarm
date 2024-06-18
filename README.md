@@ -18,7 +18,7 @@ Install with python
 
 
 ## Features
-
+- Auto Upgrade
 - Auto Claim Task (Some time error from timefarm server)
 - Auto Claim Farming
 - Auto Start Farming

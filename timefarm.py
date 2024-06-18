@@ -4,10 +4,13 @@ from colorama import Fore, Style, init
 import json
 from datetime import datetime, timedelta, timezone
 import argparse
+import urllib.parse
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='TimeFarm BOT')
     parser.add_argument('--task', type=str, choices=['y', 'n'], help='Claim Task (y/n)')
+    parser.add_argument('--upgrade', type=str, choices=['y', 'n'], help='Auto Upgrade (y/n)')
     args = parser.parse_args()
 
     if args.task is None:
@@ -15,11 +18,16 @@ def parse_arguments():
         task_input = input("Apakah Anda ingin auto claim task? (y/n, default n): ").strip().lower()
         # Jika pengguna hanya menekan enter, gunakan 'n' sebagai default
         args.task = task_input if task_input in ['y', 'n'] else 'n'
+    
+    if args.upgrade is None:
+        upgrade_input = input("Apakah Anda ingin auto upgrade clock? (y/n, default n): ").strip().lower()
+        args.upgrade = upgrade_input if upgrade_input in ['y', 'n'] else 'n'
 
     return args
 
 args = parse_arguments()
 cek_task_enable = args.task
+cek_upgrade_enable = args.upgrade
 # Set headers sekali saja di awal
 headers = {
     'accept': '*/*',
@@ -94,6 +102,47 @@ def claim_task(token, task_id):
     response = requests.post(url, headers=headers, json={})
     return response.json()
 start_time = datetime.now()
+def upgrade_level(token):
+    url = 'https://tg-bot-tap.laborx.io/api/v1/me/level/upgrade'
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+        'accept': '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'origin': 'https://tg-tap-miniapp.laborx.io',
+        'referer': 'https://tg-tap-miniapp.laborx.io/',
+        'sec-ch-ua': '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24", "Microsoft Edge WebView2";v="125"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0'
+    }
+    response = requests.post(url, headers=headers)
+    # print(response.json())
+    return response.json()
+
+def auto_upgrade(token):
+    while True:
+        response = upgrade_level(token)
+        if 'error' in response:
+            if response['error']['message'] == "Not enough balance":
+                print(Fore.RED + Style.BRIGHT + f"\r[ Upgrade ] : Tidak memiliki cukup saldo untuk upgrade.", flush=True)
+                break
+            elif response['error']['message'] == "Forbidden":
+                print(Fore.RED + Style.BRIGHT + f"\r[ Upgrade ] : Error upgrade.", flush=True)
+            elif response['error']['message'] == "Max level reached":
+                print(Fore.RED + Style.BRIGHT + f"\r[ Upgrade ] : Sudah mencapai level maksimal.", flush=True)
+                break
+            else:
+                print(Fore.RED + Style.BRIGHT + f"\r[ Upgrade ] : Error upgrade. {response['error']['message']}", flush=True)
+                break
+        else:
+            print(Fore.GREEN + Style.BRIGHT + f"\r[ Upgrade ] : Upgrade berhasil, next..", flush=True)
+
+# Tambahkan pemanggilan fungsi ini di dalam loop utama jika pengguna memilih untuk auto upgrade
+
 
 def animated_loading(duration):
     frames = ["|", "/", "-", "\\"]
@@ -122,6 +171,14 @@ def print_welcome_message():
     minutes, seconds = divmod(remainder, 60)
     print(Fore.CYAN + Style.BRIGHT + f"Up time bot: {int(days)} hari, {int(hours)} jam, {int(minutes)} menit, {int(seconds)} detik")
 
+def extract_user_details(query_line):
+    parts = query_line.split('&')
+    user_info_encoded = [part for part in parts if part.startswith('user=')][0]
+    user_info_encoded = user_info_encoded.split('=')[1]
+    user_info_json = urllib.parse.unquote(user_info_encoded)
+    user_info = json.loads(user_info_json)
+    return user_info['username'], user_info['first_name'], user_info['last_name']
+
 def main():
     while True:
         print_welcome_message()
@@ -130,17 +187,24 @@ def main():
                 queries = file.readlines()
             
             for query_data in queries:
+                username, first_name, last_name = extract_user_details(query_data.strip())
+
                 query_data = query_data.strip()
                 auth_response = get_access_token_and_info(query_data)
+                # user_info = extract_user_info(query_data)
+                # print(user_info)
                 token = auth_response['token']
 
                 balance_info = auth_response['balanceInfo']
 
-                username = balance_info.get('user', {}).get('userInfo', {}).get('userName', "Tidak Ada Username")
-                firstname = balance_info.get('user', {}).get('userInfo', {}).get('firstName', "Tidak Ada Firstname")
-                lastname = balance_info.get('user', {}).get('userInfo', {}).get('lastName', "Tidak Ada Lastname")
-                print(Fore.CYAN + Style.BRIGHT + f"\n===== [ {firstname} {lastname} | {username} ] =====")
+                # username = balance_info.get('user', {}).get('userInfo', {}).get('userName', "Tidak Ada Username")
+                # first_name = balance_info.get('user', {}).get('userInfo', {}).get('firstName', "Tidak Ada Firstname")
+                # last_name = balance_info.get('user', {}).get('userInfo', {}).get('lastName', "Tidak Ada Lastname")
+                print(Fore.CYAN + Style.BRIGHT + f"\n===== [ {first_name} {last_name} | {username} ] =====")
                 print(Fore.YELLOW + Style.BRIGHT + f"[ Balance ] : {int(balance_info['balance']):,}".replace(',', '.'))
+                if cek_upgrade_enable == 'y':
+                    print(Fore.YELLOW + Style.BRIGHT + f"\r[ Upgrade ] : Upgrading Clock..", end="", flush=True)
+                    auto_upgrade(token)
                 if cek_task_enable == 'y':
                     print(Fore.YELLOW + Style.BRIGHT + f"\r[ Task ] : Checking ...", end="", flush=True)
                     tasks = cek_task(token)
